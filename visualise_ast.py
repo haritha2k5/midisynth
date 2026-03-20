@@ -8,21 +8,22 @@ from parser import (Parser, ProgramNode, TempoNode, InstrumentNode,
                     PlayNode, RepeatNode, ChordNode)
 
 # ---------------------------------------------------------------------------
-# Color scheme - each node type gets its own color
+# Color scheme
 # ---------------------------------------------------------------------------
 NODE_COLORS = {
-    'Program':    '#4A90D9',   # blue
-    'Tempo':      '#7B68EE',   # purple
-    'Instrument': '#20B2AA',   # teal
-    'Play':       '#3CB371',   # green
-    'Repeat':     '#FF8C00',   # orange
-    'Chord':      '#DC143C',   # red
-    'Note':       '#90EE90',   # light green
-    'Duration':   '#FFD700',   # gold
+    'Program':    '#4A90D9',
+    'Tempo':      '#7B68EE',
+    'Instrument': '#20B2AA',
+    'Play':       '#3CB371',
+    'Repeat':     '#FF8C00',
+    'Chord':      '#DC143C',
+    'Note':       '#57A65A',
+    'Duration':   '#C8A200',
+    'Literal':    '#888888',
 }
 
 # ---------------------------------------------------------------------------
-# Tree node - used internally for layout calculation
+# Internal tree node for layout
 # ---------------------------------------------------------------------------
 
 
@@ -33,9 +34,10 @@ class TreeNode:
         self.children = children or []
         self.x = 0.0
         self.y = 0.0
+        self.width = 0.0
 
 # ---------------------------------------------------------------------------
-# Convert AST nodes into TreeNode structure
+# Convert AST to TreeNode
 # ---------------------------------------------------------------------------
 
 
@@ -43,111 +45,121 @@ def ast_to_tree(node):
     if isinstance(node, ProgramNode):
         children = [ast_to_tree(s) for s in node.statements]
         return TreeNode('Program', NODE_COLORS['Program'], children)
-
     elif isinstance(node, TempoNode):
-        bpm_node = TreeNode(str(node.bpm), NODE_COLORS['Duration'])
-        return TreeNode('TEMPO', NODE_COLORS['Tempo'], [bpm_node])
-
+        return TreeNode('TEMPO', NODE_COLORS['Tempo'],
+                        [TreeNode(str(node.bpm), NODE_COLORS['Literal'])])
     elif isinstance(node, InstrumentNode):
-        name_node = TreeNode(node.name, NODE_COLORS['Duration'])
-        return TreeNode('INSTRUMENT', NODE_COLORS['Instrument'], [name_node])
-
+        return TreeNode('INSTRUMENT', NODE_COLORS['Instrument'],
+                        [TreeNode(node.name, NODE_COLORS['Literal'])])
     elif isinstance(node, PlayNode):
-        note_node = TreeNode(node.note,     NODE_COLORS['Note'])
-        dur_node = TreeNode(node.duration, NODE_COLORS['Duration'])
-        return TreeNode('PLAY', NODE_COLORS['Play'], [note_node, dur_node])
-
+        return TreeNode('PLAY', NODE_COLORS['Play'], [
+            TreeNode(node.note,     NODE_COLORS['Note']),
+            TreeNode(node.duration, NODE_COLORS['Duration']),
+        ])
     elif isinstance(node, RepeatNode):
-        count_node = TreeNode(f'x{node.count}', NODE_COLORS['Duration'])
+        count_node = TreeNode(f'x{node.count}', NODE_COLORS['Literal'])
         body_nodes = [ast_to_tree(s) for s in node.body]
         return TreeNode('REPEAT', NODE_COLORS['Repeat'], [count_node] + body_nodes)
-
     elif isinstance(node, ChordNode):
         note_nodes = [TreeNode(n, NODE_COLORS['Note']) for n in node.notes]
         dur_node = TreeNode(node.duration, NODE_COLORS['Duration'])
         return TreeNode('CHORD', NODE_COLORS['Chord'], note_nodes + [dur_node])
-
     return TreeNode('?', '#aaaaaa')
 
+
 # ---------------------------------------------------------------------------
-# Layout algorithm - assigns x, y positions to each node
+# Layout: Reingold-Tilford inspired - compute subtree widths first
 # ---------------------------------------------------------------------------
+LEAF_SEP = 1.2   # horizontal gap between leaves
+LEVEL_SEP = 1.6   # vertical gap between levels
 
 
-def assign_positions(node, depth=0, counter=[0]):
-    """
-    Simple left-to-right layout.
-    Leaf nodes get sequential x positions.
-    Parent nodes are centered over their children.
-    """
+def compute_width(node):
     if not node.children:
-        node.x = counter[0]
-        node.y = -depth
-        counter[0] += 1
+        node.width = LEAF_SEP
     else:
+        for c in node.children:
+            compute_width(c)
+        node.width = sum(c.width for c in node.children)
+
+
+def assign_positions(node, x_offset=0, depth=0):
+    node.y = -depth * LEVEL_SEP
+    if not node.children:
+        node.x = x_offset + node.width / 2
+    else:
+        cursor = x_offset
         for child in node.children:
-            assign_positions(child, depth + 1, counter)
-        # Center parent over its children
+            assign_positions(child, cursor, depth + 1)
+            cursor += child.width
         node.x = (node.children[0].x + node.children[-1].x) / 2
-        node.y = -depth
 
 # ---------------------------------------------------------------------------
-# Draw the tree
+# Draw
 # ---------------------------------------------------------------------------
 
 
 def draw_tree(node, ax):
-    """Recursively draw nodes and edges."""
-    # Draw edges to children first (so nodes draw on top)
     for child in node.children:
-        ax.plot([node.x, child.x], [node.y, child.y],
-                color='#cccccc', linewidth=1.2, zorder=1)
+        ax.annotate('', xy=(child.x, child.y + 0.22),
+                    xytext=(node.x, node.y - 0.22),
+                    arrowprops=dict(arrowstyle='->', color='#555577',
+                                    lw=1.0, connectionstyle='arc3,rad=0.0'),
+                    zorder=1)
         draw_tree(child, ax)
 
-    # Draw node box
+    # Node box
+    box_w, box_h = 0.95, 0.42
     box = mpatches.FancyBboxPatch(
-        (node.x - 0.4, node.y - 0.25),
-        width=0.8, height=0.45,
-        boxstyle="round,pad=0.05",
-        linewidth=1.2,
-        edgecolor='white',
+        (node.x - box_w / 2, node.y - box_h / 2),
+        width=box_w, height=box_h,
+        boxstyle='round,pad=0.06',
+        linewidth=1.0,
+        edgecolor='#ffffff33',
         facecolor=node.color,
         zorder=2,
-        alpha=0.92
+        alpha=0.95,
     )
     ax.add_patch(box)
 
-    # Draw label
-    ax.text(node.x, node.y, node.label,
+    # Truncate long labels
+    label = node.label if len(node.label) <= 8 else node.label[:7] + '.'
+    ax.text(node.x, node.y, label,
             ha='center', va='center',
-            fontsize=7, fontweight='bold',
+            fontsize=6.5, fontweight='bold',
             color='white', zorder=3)
 
 # ---------------------------------------------------------------------------
-# Main entry point
+# Main
 # ---------------------------------------------------------------------------
 
 
 def visualize(ast):
     tree = ast_to_tree(ast)
+    compute_width(tree)
     assign_positions(tree)
 
-    fig, ax = plt.subplots(figsize=(22, 10))
-    fig.patch.set_facecolor('#1e1e2e')
-    ax.set_facecolor('#1e1e2e')
+    # Canvas size based on tree width
+    tree_w = tree.width
+    tree_h = 4 * LEVEL_SEP + 1
+
+    fig_w = max(24, tree_w * 0.55)
+    fig_h = max(6,  tree_h * 1.1)
+
+    fig, ax = plt.subplots(figsize=(fig_w, fig_h))
+    fig.patch.set_facecolor('#1a1a2e')
+    ax.set_facecolor('#1a1a2e')
 
     draw_tree(tree, ax)
 
-    # Axis cleanup
     ax.autoscale()
     ax.set_aspect('equal')
     ax.axis('off')
+    ax.margins(0.02)
 
-    # Title
-    ax.set_title('MidiSynth — Abstract Syntax Tree',
-                 color='white', fontsize=14, fontweight='bold', pad=15)
+    ax.set_title('MidiSynth — Abstract Syntax Tree (Happy Birthday)',
+                 color='white', fontsize=13, fontweight='bold', pad=12)
 
-    # Legend
     legend_handles = [
         mpatches.Patch(color=NODE_COLORS['Program'],    label='Program root'),
         mpatches.Patch(color=NODE_COLORS['Tempo'],      label='TEMPO'),
@@ -156,19 +168,16 @@ def visualize(ast):
         mpatches.Patch(color=NODE_COLORS['Repeat'],     label='REPEAT'),
         mpatches.Patch(color=NODE_COLORS['Chord'],      label='CHORD'),
         mpatches.Patch(color=NODE_COLORS['Note'],       label='Note value'),
-        mpatches.Patch(
-            color=NODE_COLORS['Duration'],   label='Duration / literal'),
+        mpatches.Patch(color=NODE_COLORS['Duration'],   label='Duration'),
+        mpatches.Patch(color=NODE_COLORS['Literal'],    label='Literal'),
     ]
-    ax.legend(handles=legend_handles,
-              loc='upper right',
-              fontsize=8,
-              facecolor='#2e2e3e',
-              labelcolor='white',
-              edgecolor='#555555')
+    ax.legend(handles=legend_handles, loc='upper right',
+              fontsize=8, facecolor='#2e2e4e',
+              labelcolor='white', edgecolor='#444466')
 
     plt.tight_layout()
-    plt.savefig('ast_visualization.png', dpi=150, bbox_inches='tight',
-                facecolor='#1e1e2e')
+    plt.savefig('ast_visualization.png', dpi=150,
+                bbox_inches='tight', facecolor='#1a1a2e')
     print("AST saved as ast_visualization.png")
     plt.show()
 
