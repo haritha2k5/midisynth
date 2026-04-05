@@ -233,7 +233,22 @@
     <div class="panel-header">
       <div class="dot"></div>
       <span class="panel-title">DSL Editor</span>
-      <span style="margin-left:auto;font-family:var(--mono);font-size:10px;color:var(--muted)">input.msynth</span>
+      <input 
+  id="filenameInput"
+  value="HappyBirthday.msynth"
+  style="
+    margin-left:auto;
+    font-family:var(--mono);
+    font-size:10px;
+    color:var(--muted);
+    background:transparent;
+    border:1px solid var(--border);
+    border-radius:6px;
+    padding:4px 8px;
+    width:160px;
+    outline:none;
+  "
+/>
     </div>
     <textarea id="editor" spellcheck="false"># MidiSynth DSL - Happy Birthday
 # Author: M Haritha
@@ -614,7 +629,20 @@ function renderIR(data) {
     </div>
     ${rows}`;
 }
+function getSongName() {
+  const fileInput = document.getElementById('filenameInput');
+  if (!fileInput) return "Untitled";
 
+  let name = fileInput.value.trim();
+
+  // Remove extension
+  if (name.includes('.')) {
+    name = name.split('.')[0];
+  }
+
+  // Clean formatting
+  return name || "Untitled";
+}
 function renderPlayer(irData, midiData, semData) {
   const sec = document.getElementById('section-midi');
 
@@ -626,19 +654,19 @@ function renderPlayer(irData, midiData, semData) {
 
   setTabState('midi', true);
 
-  // Store timeline for playback
   irTimeline    = irData.timeline || [];
   totalDur      = irData.total_duration || 0;
   playbackTempo = semData?.tempo || 120;
 
+  const songName = getSongName();  // ✅ NEW LINE
+
   sec.innerHTML = `
     <div class="player-card">
       <div class="player-icon">🎹</div>
-      <div class="player-title">Happy Birthday</div>
+      <div class="player-title">${songName}</div>   <!-- ✅ UPDATED -->
       <div class="player-sub">
         ${irTimeline.length} notes · ${totalDur}s · ${playbackTempo} BPM · piano
       </div>
-
       <div class="play-controls">
         <button class="play-btn" id="playBtn" onclick="playAll()">▶ Play</button>
         <button class="stop-btn" id="stopBtn" onclick="stopAll()" disabled>■ Stop</button>
