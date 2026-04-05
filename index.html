@@ -41,6 +41,11 @@
     background: rgba(13,15,20,0.9); backdrop-filter: blur(12px);
     position: sticky; top: 0; z-index: 100;
   }
+  .badges {
+  margin-left: auto;      /* pushes badges to the right */
+  display: flex;
+  gap: 10px;
+ }
   .logo { font-size: 22px; font-weight: 800; letter-spacing: -0.5px; }
   .logo span { color: var(--accent); }
   .tagline { font-family: var(--mono); font-size: 11px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; }
@@ -219,11 +224,15 @@
 <div class="wrapper">
 
 <header>
-  <div>
+  <div class="left">
     <div class="logo">Midi<span>Synth</span></div>
     <div class="tagline">DSL Music Compiler · Compiler Design Lab</div>
   </div>
-  <div class="badge">23PT22 · M HARITHA</div>
+
+  <div class="badges">
+    <div class="badge">23PT22 · M HARITHA</div>
+    <div class="badge">23PT39 · VISHVA VAISNAVI</div>
+  </div>
 </header>
 
 <div class="main">
@@ -295,10 +304,10 @@ PLAY F4 HALF</textarea>
   <div class="right-panel">
     <div class="pipeline">
       <button class="step-tab active" id="tab-lexer"    onclick="switchTab('lexer')"><span class="sdot"></span>Phase 1 · Lexer</button>
-      <button class="step-tab"        id="tab-parser"   onclick="switchTab('parser')"><span class="sdot"></span>Phase 1 · Parser</button>
-      <button class="step-tab"        id="tab-semantic" onclick="switchTab('semantic')"><span class="sdot"></span>Phase 1 · Semantic</button>
-      <button class="step-tab"        id="tab-ir"       onclick="switchTab('ir')"><span class="sdot"></span>Phase 2 · IR</button>
-      <button class="step-tab"        id="tab-midi"     onclick="switchTab('midi')"><span class="sdot"></span>Phase 2 · Player</button>
+      <button class="step-tab"        id="tab-parser"   onclick="switchTab('parser')"><span class="sdot"></span>Phase 2 · Parser</button>
+      <button class="step-tab"        id="tab-semantic" onclick="switchTab('semantic')"><span class="sdot"></span>Phase 3 · Semantic</button>
+      <button class="step-tab"        id="tab-ir"       onclick="switchTab('ir')"><span class="sdot"></span>Phase 4 · IR</button>
+      <button class="step-tab"        id="tab-midi"     onclick="switchTab('midi')"><span class="sdot"></span>Phase 5 · Player</button>
     </div>
 
     <div class="output-area" id="outputArea">
