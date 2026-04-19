@@ -215,6 +215,57 @@
   .stat { display: flex; gap: 6px; }
   .stat-val { color: var(--text); }
 
+  .ast-img-wrap {
+  overflow: hidden;
+  cursor: grab;
+  position: relative;
+}
+
+.ast-img-wrap img {
+  transform-origin: 0 0;
+  transition: transform 0.1s ease;
+  user-select: none;
+}
+.expand-btn {
+  position: absolute;
+  bottom: 10px;
+  right: 10px;
+  background: var(--accent);
+  color: white;
+  border: none;
+  padding: 6px 10px;
+  font-size: 11px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.ast-img-wrap {
+  position: relative;
+}
+
+.ast-modal {
+  display: none;
+  position: fixed;
+  z-index: 999;
+  inset: 0;
+  background: rgba(0,0,0,0.9);
+  justify-content: center;
+  align-items: center;
+}
+
+.ast-modal img {
+  max-width: 95%;
+  max-height: 95%;
+}
+
+.close-btn {
+  position: absolute;
+  top: 20px;
+  right: 30px;
+  font-size: 30px;
+  color: white;
+  cursor: pointer;
+}
   ::-webkit-scrollbar { width: 5px; height: 5px; }
   ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
@@ -352,7 +403,71 @@ let startTime  = 0;
 let totalDur   = 0;
 let playbackTempo = 120;
 let progressInterval = null;
+let scale = 1;
+let posX = 0;
+let posY = 0;
+let isDragging = false;
+let startX, startY;
 
+function openASTModal(base64) {
+  const modal = document.getElementById('astModal');
+  const img = document.getElementById('astModalImg');
+
+  img.src = "data:image/png;base64," + base64;
+  modal.style.display = "flex";
+}
+
+function closeASTModal() {
+  document.getElementById('astModal').style.display = "none";
+}
+function enableASTInteraction() {
+  const img = document.getElementById('astImage');
+  if (!img) return;
+
+  scale = 1;
+  posX = 0;
+  posY = 0;
+
+  const wrapper = img.parentElement;
+
+  // ZOOM (scroll)
+  wrapper.onwheel = (e) => {
+    e.preventDefault();
+    const zoomFactor = 0.1;
+
+    if (e.deltaY < 0) scale += zoomFactor;
+    else scale -= zoomFactor;
+
+    scale = Math.max(0.5, Math.min(scale, 3));
+    updateTransform(img);
+  };
+
+  // DRAG START
+  wrapper.onmousedown = (e) => {
+    isDragging = true;
+    startX = e.clientX - posX;
+    startY = e.clientY - posY;
+    wrapper.style.cursor = "grabbing";
+  };
+
+  // DRAG MOVE
+  window.onmousemove = (e) => {
+    if (!isDragging) return;
+    posX = e.clientX - startX;
+    posY = e.clientY - startY;
+    updateTransform(img);
+  };
+
+  // DRAG END
+  window.onmouseup = () => {
+    isDragging = false;
+    wrapper.style.cursor = "grab";
+  };
+}
+
+function updateTransform(img) {
+  img.style.transform = `translate(${posX}px, ${posY}px) scale(${scale})`;
+}
 function getAudioCtx() {
   if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
   return audioCtx;
@@ -483,9 +598,11 @@ function pitchName(p) { return NOTE_NAMES[p % 12] + Math.floor(p/12 - 1); }
 
 // ── Compile ───────────────────────────────────────────────────────────────
 async function compile() {
-  if(isPlaying) stopAll();
+  stopAll();
+
   const btn  = document.getElementById('compileBtn');
   const code = document.getElementById('editor').value;
+
   btn.disabled = true;
   btn.textContent = '⟳ Compiling...';
   document.getElementById('statStatus').textContent = 'Compiling...';
@@ -495,12 +612,22 @@ async function compile() {
   });
 
   try {
-    const res  = await fetch('http://127.0.0.1:8000/compile', {
+    const res = await fetch('/compile', {   // ✅ FIXED (no hardcoded port)
       method: 'POST',
       headers: {'Content-Type':'application/json'},
       body: JSON.stringify({ code })
     });
+
+    if (!res.ok) {
+      throw new Error("Backend error: " + res.status);
+    }
+
     const data = await res.json();
+
+    // ✅ SAFETY CHECK (prevents crash)
+    if (!data || !data.lexer) {
+      throw new Error("Invalid response from backend");
+    }
 
     renderLexer(data.lexer);
     renderParser(data.parser);
@@ -515,10 +642,17 @@ async function compile() {
     document.getElementById('statStatus').textContent = data.midi.success ? '✓ Success' : '✗ Error';
 
   } catch(e) {
+    console.error(e);
+
     document.getElementById('statStatus').textContent = 'Server error';
+
     document.getElementById('section-lexer').innerHTML =
-      `<div class="error-box">Cannot connect to backend.<br>
-       Run: <code>python app.py</code><br><br>${e}</div>`;
+      `<div class="error-box">
+        Cannot connect to backend.<br>
+        Make sure server is running:<br>
+        <code>python app.py</code><br><br>
+        Error: ${e.message}
+      </div>`;
   }
 
   btn.disabled = false;
@@ -557,15 +691,12 @@ function renderParser(data) {
 
   // AST image
   const imgHtml = data.ast_image
-    ? `<div class="section-title">AST Visualization</div>
-       <div class="ast-img-wrap">
-         <img src="data:image/png;base64,${data.ast_image}" alt="AST Tree"
-              onclick="this.style.transform = this.style.transform ? '' : 'scale(1.5)';
-                       this.style.transformOrigin='top left';
-                       this.style.transition='transform 0.3s'"/>
-       </div>`
-    : '';
-
+  ? `<div class="section-title">AST Visualization</div>
+     <div class="ast-img-wrap">
+       <img src="data:image/png;base64,${data.ast_image}" alt="AST Tree"/>
+       <button class="expand-btn" onclick="openASTModal('${data.ast_image}')">⛶ Expand</button>
+     </div>`
+  : '';
   const nodes = data.ast.map((n,i) => {
     const cls = n.split('(')[0];
     return `<div class="ast-node ${cls}" style="animation-delay:${i*12}ms">${n}</div>`;
@@ -575,6 +706,7 @@ function renderParser(data) {
     ${imgHtml}
     <div class="section-title">AST Nodes — ${data.ast.length} statements</div>
     <div class="ast-nodes-list">${nodes}</div>`;
+  enableASTInteraction();
 }
 
 function renderSemantic(data) {
@@ -719,5 +851,9 @@ document.getElementById('editor').addEventListener('keydown', e => {
   }
 });
 </script>
+<div id="astModal" class="ast-modal">
+  <span class="close-btn" onclick="closeASTModal()">×</span>
+  <img id="astModalImg" />
+</div>
 </body>
 </html>

@@ -1,0 +1,13 @@
+# Test: Fully valid input with all features
+TEMPO 100
+INSTRUMENT violin
+
+PLAY C4 QUARTER
+PLAY E4 QUARTER
+
+REPEAT 2 {
+    PLAY G4 EIGHTH
+    PLAY A4 EIGHTH
+}
+
+CHORD [C4 E4 G4] HALF

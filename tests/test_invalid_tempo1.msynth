@@ -1,0 +1,5 @@
+# Test: Tempo out of range
+TEMPO 500
+INSTRUMENT piano
+
+PLAY C4 QUARTER

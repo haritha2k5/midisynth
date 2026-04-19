@@ -1,0 +1,4 @@
+# Test: Missing TEMPO declaration
+INSTRUMENT piano
+
+PLAY C4 QUARTER

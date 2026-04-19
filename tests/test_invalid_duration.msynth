@@ -1,0 +1,5 @@
+# Test: Invalid duration (TRIPLET is not valid)
+TEMPO 120
+INSTRUMENT piano
+
+PLAY C4 TRIPLET

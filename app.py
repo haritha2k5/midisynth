@@ -49,7 +49,8 @@ class DSLInput(BaseModel):
 
 @app.get("/")
 def serve_index():
-    return FileResponse("index.html")
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    return FileResponse(os.path.join(base_dir, "index.html"))
 
 @app.post("/compile")
 def compile_dsl(data: DSLInput):
@@ -176,4 +177,4 @@ def compile_dsl(data: DSLInput):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("app:app", host="127.0.0.1", port=8000, reload=True)
+    uvicorn.run("app:app", host="127.0.0.1", port=8001, reload=True)

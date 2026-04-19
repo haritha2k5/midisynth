@@ -1,0 +1,4 @@
+# Test: Missing INSTRUMENT declaration
+TEMPO 120
+
+PLAY C4 QUARTER

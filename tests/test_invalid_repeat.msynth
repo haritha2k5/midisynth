@@ -1,0 +1,7 @@
+# Test: Repeat count of 0
+TEMPO 120
+INSTRUMENT piano
+
+REPEAT 0 {
+    PLAY C4 QUARTER
+}

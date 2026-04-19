@@ -1,0 +1,5 @@
+# Test: Invalid instrument name
+TEMPO 120
+INSTRUMENT sitar
+
+PLAY C4 QUARTER

@@ -1,0 +1,5 @@
+# Test: Invalid note (X4 is not a valid note)
+TEMPO 120
+INSTRUMENT piano
+
+PLAY X4 QUARTER
